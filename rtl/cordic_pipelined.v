@@ -15,17 +15,36 @@ module cordic_pipelined(clk, z0, xn, yn);
   wire signed [iter_width:0] x [N:0];
   wire signed [iter_width:0] y [N:0];
   wire signed [z_width:0] z [N:0];
+  wire signed [z_width:0] current_angle;
 
   assign x[0] = 'b01_0011_0110_1110_1001;  // 0.60725 in binary
   assign y[0] = 0;
 
-  always @ (z0, x[N], y[N]) begin
+  assign current_angle = z0 - 'h0A0;
+
+  always @ (current_angle, x[N], y[N]) begin
    	
     // cordic only works in first and fourth quadrant
 
+    if (((current_angle[z_width]==1) && (current_angle < 'h1A60)) || 
+   	((current_angle[z_width]==0) && (current_angle > 'h05A0))) begin   // if  < -90 ||  > +90
+	//$display("at 1");
+
+  	// flip the sign for second or third quadrant using two-complement rule
+  	xn = ~( x[N]-1 ); // xn = cos(z0)
+	yn = ~( y[N]-1 ); // yn = sin(z0)  
+    end
+
+    else begin		// z0 is already in first and fourth quadrant
+	xn = x[N];	// xn = cos(z0)  
+	yn = y[N];	// yn = sin(z0)  
+    end
+  end
+
+  always @ (z0) begin
     if (((z0[z_width]==1) && (z0 < 'h1A60)) || 
-   	((z0[z_width]==0) && (z0 > 'h05A0))) begin   	// if z0 < -90 || z0 > +90
-	//$display("at 1, z0 = %h", z0);
+   	((z0[z_width]==0) && (z0 > 'h05A0))) begin   // if  < -90 ||  > +90
+
 	if (z0[z_width] == 1) begin 			// if z0 < 0
 	    z[0] = z0 + 'hB40; 	  // third quadrant, so add 180 degrees
 	    //$display("at 2");
@@ -34,15 +53,10 @@ module cordic_pipelined(clk, z0, xn, yn);
 	    z[0] = z0 - 'hB40;	  // second quadrant, so subtract 180 degrees
 	    //$display("at 3");
 	end
-  	// flip the sign for second or third quadrant using two-complement rule
-  	xn = ~( x[N]-1 ); // xn = cos(z0)
-	yn = ~( y[N]-1 ); // yn = sin(z0)  
     end
 
-    else begin		// z0 is already in first and fourth quadrant
+    else begin
 	z[0] = z0; 
-	xn = x[N];	// xn = cos(z0)  
-	yn = y[N];	// yn = sin(z0)  
     end
     //$display("z[0] = ", z[0]);
   end

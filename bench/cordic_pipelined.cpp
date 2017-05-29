@@ -48,7 +48,7 @@ class Dict{
 	bool check_result(void){
 
 	    int angle = static_cast<int>
-			(bits_to_double<13>( std::bitset<13>( uut->z0 ).to_string(), true));    
+			(bits_to_double<13>( std::bitset<13>( uut->z0 - 0x0a0 ).to_string(), true));    
 // since angle starts from 0.0 degree instead of 1.0 degree and we are only getting the final result after 10 positive edges (iterations). z0 is the input angle used to generate this final result. Divide by 16 becuase we have 4 decimal place
 
 	    //cout << "uut->z0 / 16 = " << uut->z0 / 16 << endl; 
@@ -74,19 +74,21 @@ class Dict{
 	    assert( abs(dxn - cos_result) < TOLERANCE );
 	    assert( abs(dyn - sin_result) < TOLERANCE );
 
-	    if (angle == 180) exit(0);   // to stop at +180 degrees
+	    cout << endl;
 
-	    return true;
+	    if (angle == 180)  	return true;   // to stop at +180 degrees
+	    else		return false;
 	}
 
 	void cout_debug_msg(unsigned int iteration){
-	    cout << "--------------start of debug_message--------------" << endl;
+	    cout << "--------------start of debug_message--------------" <<  "main_time = " << main_time << endl;
 	    cout << "iteration = " << iteration << endl;	  
 	    
-	    cout_XOUT(iteration); 
-	    cout_YOUT(iteration);
-	    cout_ZOUT(iteration);
-
+	    for(int j=0; j<=9; j++){
+	    	cout_XOUT(j); 
+	    	cout_YOUT(j);
+	    	cout_ZOUT(j);
+	    }
 	    cout << "--------------end of debug_message--------------" << endl;	    
 	}
 
@@ -207,14 +209,20 @@ int main(int argc, char** argv)
             uut->clk = uut->clk ? 0 : 1;       	// Toggle clock with period of 10 main_time units
 		    				// first positive clock edge at main_time = 5
 	    //printf("Toggling clock at time = %d\n", main_time);
-	    uut->eval();            // Evaluate combinatorial logic before and after clock edge transitions
-	}
 
-//	if ((main_time >= 11) && (main_time % 10 == 1)){ 	// main_time = 11, 21, 31, 41, 51, ...
 //            uut->z0 += 0x010;    	// add 000_0001.0000  which is 1.0 degree when clk = 0
 					// first negative clock edge at main_time = 10
 	    //printf("Incrementing input test angle");
-//	}
+	    
+	    if (uut->clk == 1){ 		// increment angle after rising clock edge
+		if (uut->z0 != 0x1FF0) 		// not equal to -1.0 degree
+  		    uut->z0 += 0x010;   	
+                else 
+		    uut->z0 = 0;  	// 0.0 degree  
+	    }
+
+	    uut->eval();            // Evaluate combinatorial logic before and after clock edge transitions
+	}
 
 	if ((main_time >= 5) && (main_time % 10 == 5)){   // main_time = 5, 15, 25, 35, 45, 55, 65, 75, 85, 95, ...
 	    
@@ -226,7 +234,7 @@ int main(int argc, char** argv)
 	    //cout << "main_time = " << main_time << endl;   
 	    //cout << "iteration_stage = " << iteration_stage << endl;
 
-	    d.cout_debug_msg(iteration_stage);  // print debug message
+	    //d.cout_debug_msg(iteration_stage);  // print debug message
 	}
 
 	if ((main_time >= 95) && (main_time % 10 == 5)){   // main_time = 95, 105, 115, 125, ...
@@ -234,15 +242,11 @@ int main(int argc, char** argv)
 	    bool result_passed = false;  
 	
 	    // check if the result from final iterations matches closely with exact values of cos(angle) and sin(angle)
-	    if (iteration_stage == 9) result_passed = d.check_result();  
-	    
-	    
-	    
-	    if (result_passed == true) {
-		if (uut->z0 != 0x1FF0) 		// not equal to -1.0 degree
-			uut->z0 += 0x010;   	
-		else 
-			uut->z0 = 0;  	// 0.0 degree
+	    result_passed = d.check_result();   
+
+	    if (result_passed == true){
+		cout << "Pipelined testing passes for angles from -180 degree to +180 degree" << endl;	
+		break;
 	    }
 	}
 
